@@ -49,6 +49,14 @@ class ExerciseClassifier:
             class_weight="balanced",
             n_jobs=-1,
         )
+        self.classes = [
+            'squat',
+            'pushup',
+            'plank',
+            'jumping_jack',
+            'lunge',
+            'deadlift'
+        ]
 
         self.label_encoder = LabelEncoder()
 
