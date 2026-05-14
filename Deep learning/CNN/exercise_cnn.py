@@ -53,7 +53,7 @@ train_datagen = ImageDataGenerator(
 )
 
 train_gen = train_datagen.flow_from_directory(
-    'dataset/exercises/',   # apna folder path
+    'dataset/exercises_recognization/',   # apna folder path
     target_size=(64, 64),
     batch_size=32,
     class_mode='categorical',
@@ -61,7 +61,7 @@ train_gen = train_datagen.flow_from_directory(
 )
 
 val_gen = train_datagen.flow_from_directory(
-    'dataset/exercises/',
+    'dataset/exercises_recognization/',
     target_size=(64, 64),
     batch_size=32,
     class_mode='categorical',
@@ -80,5 +80,5 @@ model.save('weights/exercise_model.h5')
 print("Model saved!")
 
 # ── Colab se download karo ────────────────────────────────
-from google.colab import files
-files.download('weights/exercise_model.h5')
+#from google.colab import files
+#files.download('weights/exercise_model.h5')#
