@@ -31,6 +31,9 @@ class PostureClassifier:
 
     def __init__(self):
 
+        # Labels access
+        self.labels = self.LABELS
+
         # StandardScaler + SVM pipeline
         self.model = Pipeline([
             ("scaler", StandardScaler()),
@@ -80,13 +83,6 @@ class PostureClassifier:
     def extract_features(self, keypoints):
         """
         Extract posture angles from landmarks.
-
-        keypoints shape:
-        [
-            [x, y],
-            [x, y],
-            ...
-        ]
         """
 
         keypoints = np.array(keypoints)
@@ -97,10 +93,6 @@ class PostureClassifier:
             )
 
         features = []
-
-        # -------------------------------------------------
-        # Example posture angles
-        # -------------------------------------------------
 
         # Left shoulder-elbow-wrist
         features.append(
@@ -236,7 +228,7 @@ if __name__ == "__main__":
     X = np.random.rand(300, 6)
 
     y = np.random.choice(
-        clf.LABELS,
+        clf.labels,
         300
     )
 
