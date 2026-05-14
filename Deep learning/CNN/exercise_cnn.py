@@ -61,7 +61,7 @@ train_gen = train_datagen.flow_from_directory(
 )
 
 val_gen = train_datagen.flow_from_directory(
-    'dataset/exercise_recognization/',
+    'DATASETS/exercise_recognization/Human Action Recognition/',
     target_size=(64, 64),
     batch_size=32,
     class_mode='categorical',
