@@ -27,7 +27,7 @@ def train(data_path='data/raw/exercise_dataset.csv'):
     fe = FeatureEngineer()
 
     # Dataset ke hisaab se columns change karo
-    feature_cols = [c for c in df.columns if c != 'label']
+    feature_cols = [c for c in df.columns if c != 'Label']
     label_col = 'Label'
 
     X = df[feature_cols].values
