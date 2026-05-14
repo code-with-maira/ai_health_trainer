@@ -27,14 +27,16 @@ def train(data_path='data/raw/exercise_dataset.csv'):
     fe = FeatureEngineer()
 
     # Dataset ke hisaab se columns change karo
-    feature_cols = [c for c in df.columns if c != 'Label']
+    feature_cols = [c for c in df.columns if c != 'Label','Side']
     label_col = 'Label'
 
     X = df[feature_cols].values
     y = prep.encode_labels(df[label_col].values)
 
-    # Step 3: Augmentation skip
-    print("\n[3/5] Augmentation skipped...")    
+    # Step 3: Augmentation
+    print("\n[3/5] Data augmentation...")
+    aug = Augmentor()
+    X, y = aug.augment_keypoints(X, y, multiplier=3)  
     # Step 4: Split aur normalize
     print("\n[4/5] Train/val/test split...")
     X_train, X_val, X_test, y_train, y_val, y_test = prep.split(X, y)
