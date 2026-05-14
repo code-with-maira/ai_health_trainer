@@ -70,7 +70,7 @@ def train(data_path='data/raw/exercise_dataset.csv'):
     print("           MODEL EVALUATION")
     print("=" * 60)
 
-    y_pred = clf.predict(X_test)
+    y_pred = clf.model.predict(X_test)
 
     acc = accuracy_score(y_test, y_pred)
     print(f"\nAccuracy: {acc * 100:.2f}%\n")
