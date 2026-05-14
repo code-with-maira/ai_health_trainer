@@ -28,7 +28,7 @@ def train(data_path='data/raw/exercise_dataset.csv'):
 
     # Dataset ke hisaab se columns change karo
     feature_cols = [c for c in df.columns if c != 'label']
-    label_col = 'label'
+    label_col = 'Label'
 
     X = df[feature_cols].values
     y = prep.encode_labels(df[label_col].values)
