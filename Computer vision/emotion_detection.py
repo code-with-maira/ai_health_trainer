@@ -1,21 +1,70 @@
-from deepface import DeepFace
+from fer import FER
 import cv2
-import numpy as np
 
 class EmotionDetector:
-    def analyze(self, frame: np.ndarray) -> list[dict]:
-        try:
-            results = DeepFace.analyze(frame, actions=["emotion"], enforce_detection=False)
-            return results if isinstance(results, list) else [results]
-        except Exception:
-            return []
 
-    def draw(self, frame: np.ndarray, results: list[dict]) -> np.ndarray:
-        for r in results:
-            region = r.get("region", {})
-            x, y, w, h = region.get("x", 0), region.get("y", 0), region.get("w", 0), region.get("h", 0)
-            emotion = r.get("dominant_emotion", "")
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 100, 0), 2)
-            cv2.putText(frame, emotion, (x, y - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 100, 0), 2)
+    def __init__(self):
+
+        self.detector = FER(mtcnn=False)
+
+    def analyze(self, frame):
+
+        results = self.detector.detect_emotions(frame)
+
+        return results
+
+    def draw(self, frame, results):
+
+        for result in results:
+
+            x, y, w, h = result["box"]
+
+            emotions = result["emotions"]
+
+            emotion = max(emotions, key=emotions.get)
+
+            cv2.rectangle(
+                frame,
+                (x, y),
+                (x + w, y + h),
+                (0, 255, 0),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                emotion,
+                (x, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2
+            )
+
         return frame
+
+
+if __name__ == "__main__":
+
+    detector = EmotionDetector()
+
+    cap = cv2.VideoCapture(0)
+
+    while True:
+
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+
+        results = detector.analyze(frame)
+
+        frame = detector.draw(frame, results)
+
+        cv2.imshow("Emotion Detection", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
