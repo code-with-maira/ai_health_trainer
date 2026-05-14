@@ -27,12 +27,13 @@ def train(data_path='data/raw/exercise_dataset.csv'):
     fe = FeatureEngineer()
 
     # Dataset ke hisaab se columns change karo
-    feature_cols = [c for c in df.columns if c != 'Label','Side']
+    feature_cols = [c for c in df.columns if c not in ['Label', 'Side']]
     label_col = 'Label'
 
     X = df[feature_cols].values
     y = prep.encode_labels(df[label_col].values)
-
+    print("Feature columns:", feature_cols)
+    print(df[feature_cols].head())
     # Step 3: Augmentation
     print("\n[3/5] Data augmentation...")
     aug = Augmentor()
