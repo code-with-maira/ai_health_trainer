@@ -1,31 +1,12 @@
 """
 landmark_extractor.py
----------------------
-ULTRA Advanced Body Landmark Extraction + Biomechanics AI
-
-Improved Features:
-- Structured body snapshot
-- 2D + 3D joint angles
-- Distance metrics
-- Body symmetry analysis
-- Center of mass
-- Stability estimation
-- Velocity tracking
-- Acceleration tracking
-- Temporal smoothing
-- Posture metrics
-- Balance analysis
-- ML-ready feature vectors
-- Fatigue indicators
-- Real-time optimized
+Ultra Advanced Landmark Extraction
 """
 
 import numpy as np
 
 from dataclasses import dataclass, field
-
-from typing import Optional, Dict, Tuple, List
-
+from typing import Optional, Dict, Tuple
 from collections import deque
 
 from core.pose_engine import (
@@ -34,10 +15,9 @@ from core.pose_engine import (
     PoseEngine,
 )
 
-
-# ===================================================================== #
-# JOINT INDICES
-# ===================================================================== #
+# ============================================================
+# JOINT IDS
+# ============================================================
 
 class J:
 
@@ -61,23 +41,13 @@ class J:
     LEFT_ANKLE = 27
     RIGHT_ANKLE = 28
 
-    LEFT_HEEL = 29
-    RIGHT_HEEL = 30
 
-    LEFT_FOOT = 31
-    RIGHT_FOOT = 32
-
-
-# ===================================================================== #
+# ============================================================
 # BODY SNAPSHOT
-# ===================================================================== #
+# ============================================================
 
 @dataclass
 class BodySnapshot:
-
-    # ------------------------------------------------------------ #
-    # Core joints
-    # ------------------------------------------------------------ #
 
     nose: Optional[Landmark] = None
 
@@ -99,76 +69,108 @@ class BodySnapshot:
     left_ankle: Optional[Landmark] = None
     right_ankle: Optional[Landmark] = None
 
-    # ------------------------------------------------------------ #
-    # Computed metrics
-    # ------------------------------------------------------------ #
-
     angles: Dict[str, float] = field(default_factory=dict)
-
-    angles_3d: Dict[str, float] = field(default_factory=dict)
-
-    distances: Dict[str, float] = field(default_factory=dict)
-
-    symmetry: Dict[str, float] = field(default_factory=dict)
 
     velocities: Dict[str, float] = field(default_factory=dict)
 
     accelerations: Dict[str, float] = field(default_factory=dict)
 
-    posture: Dict[str, float] = field(default_factory=dict)
-
     fatigue: Dict[str, float] = field(default_factory=dict)
 
-    # ------------------------------------------------------------ #
-    # Body geometry
-    # ------------------------------------------------------------ #
+    posture: Dict[str, float] = field(default_factory=dict)
 
-    mid_shoulder: Optional[Tuple[int, int]] = None
+    symmetry: Dict[str, float] = field(default_factory=dict)
 
-    mid_hip: Optional[Tuple[int, int]] = None
-
-    center_of_mass: Optional[Tuple[int, int]] = None
-
-    body_scale: float = 1.0
-
-    stability_score: float = 0.0
-
-    balance_score: float = 0.0
-
-    # ------------------------------------------------------------ #
+    distances: Dict[str, float] = field(default_factory=dict)
 
     fully_visible: bool = False
 
+    # ========================================================
+    # IMPORTANT FIXES
+    # ========================================================
 
-# ===================================================================== #
-# EXTRACTOR
-# ===================================================================== #
+    def to_list(self):
+
+        joints = [
+
+            self.nose,
+
+            self.left_shoulder,
+            self.right_shoulder,
+
+            self.left_elbow,
+            self.right_elbow,
+
+            self.left_wrist,
+            self.right_wrist,
+
+            self.left_hip,
+            self.right_hip,
+
+            self.left_knee,
+            self.right_knee,
+
+            self.left_ankle,
+            self.right_ankle,
+        ]
+
+        output = []
+
+        for lm in joints:
+
+            if lm is None:
+
+                output.extend([0.0, 0.0])
+
+            else:
+
+                output.extend([lm.x, lm.y])
+
+        return output
+
+    def to_numpy(self):
+
+        return np.array(
+            self.to_list(),
+            dtype=np.float32
+        )
+
+    def __iter__(self):
+
+        return iter(self.to_list())
+
+    def __len__(self):
+
+        return len(self.to_list())
+
+
+# ============================================================
+# LANDMARK EXTRACTOR
+# ============================================================
 
 class LandmarkExtractor:
 
     VIS_THRESHOLD = 0.5
 
-    MISSING = -1.0
-
     def __init__(self):
 
-        self._prev_angles: Dict[str, float] = {}
+        self.history = deque(maxlen=10)
 
-        self._prev_velocities: Dict[str, float] = {}
+        self.prev_angles = {}
 
-        self._history = deque(maxlen=10)
+        self.prev_velocity = {}
 
-    # ================================================================= #
+    # ========================================================
 
     def reset(self):
 
-        self._prev_angles.clear()
+        self.history.clear()
 
-        self._prev_velocities.clear()
+        self.prev_angles.clear()
 
-        self._history.clear()
+        self.prev_velocity.clear()
 
-    # ================================================================= #
+    # ========================================================
 
     def extract(
         self,
@@ -186,26 +188,26 @@ class LandmarkExtractor:
 
         snap = BodySnapshot()
 
-        # ------------------------------------------------------------ #
-        # Joint Getter
-        # ------------------------------------------------------------ #
+        # ====================================================
+        # GET LANDMARK
+        # ====================================================
 
         def get(idx):
 
             lm = result.get(idx)
 
-            return (
-                lm
-                if (
-                    lm and
-                    lm.visibility >= self.VIS_THRESHOLD
-                )
-                else None
-            )
+            if (
+                lm and
+                lm.visibility >= self.VIS_THRESHOLD
+            ):
 
-        # ------------------------------------------------------------ #
-        # Assign Joints
-        # ------------------------------------------------------------ #
+                return lm
+
+            return None
+
+        # ====================================================
+        # ASSIGN
+        # ====================================================
 
         snap.nose = get(J.NOSE)
 
@@ -227,365 +229,81 @@ class LandmarkExtractor:
         snap.left_ankle = get(J.LEFT_ANKLE)
         snap.right_ankle = get(J.RIGHT_ANKLE)
 
-        # ------------------------------------------------------------ #
-        # Midpoints
-        # ------------------------------------------------------------ #
-
-        if (
-            snap.left_shoulder and
-            snap.right_shoulder
-        ):
-
-            snap.mid_shoulder = self._midpoint(
-                snap.left_shoulder,
-                snap.right_shoulder
-            )
-
-        if (
-            snap.left_hip and
-            snap.right_hip
-        ):
-
-            snap.mid_hip = self._midpoint(
-                snap.left_hip,
-                snap.right_hip
-            )
-
-        # ------------------------------------------------------------ #
-        # Center of Mass
-        # ------------------------------------------------------------ #
-
-        visible = [
-
-            lm for lm in [
-
-                snap.left_shoulder,
-                snap.right_shoulder,
-
-                snap.left_hip,
-                snap.right_hip,
-
-                snap.left_knee,
-                snap.right_knee,
-
-                snap.left_ankle,
-                snap.right_ankle,
-
-            ]
-
-            if lm is not None
-        ]
-
-        if visible:
-
-            xs = [lm.px for lm in visible]
-            ys = [lm.py for lm in visible]
-
-            snap.center_of_mass = (
-
-                int(np.mean(xs)),
-                int(np.mean(ys))
-
-            )
-
-        # ------------------------------------------------------------ #
-        # Angles
-        # ------------------------------------------------------------ #
+        # ====================================================
+        # ANGLES
+        # ====================================================
 
         a = snap.angles
-        a3 = snap.angles_3d
 
-        # Elbows
-
-        a["left_elbow"] = self._angle3(
+        a["left_elbow"] = self._angle(
             snap.left_shoulder,
             snap.left_elbow,
             snap.left_wrist
         )
 
-        a["right_elbow"] = self._angle3(
+        a["right_elbow"] = self._angle(
             snap.right_shoulder,
             snap.right_elbow,
             snap.right_wrist
         )
 
-        # Knees
-
-        a["left_knee"] = self._angle3(
+        a["left_knee"] = self._angle(
             snap.left_hip,
             snap.left_knee,
             snap.left_ankle
         )
 
-        a["right_knee"] = self._angle3(
+        a["right_knee"] = self._angle(
             snap.right_hip,
             snap.right_knee,
             snap.right_ankle
         )
 
-        # Shoulders
-
-        a["left_shoulder"] = self._angle3(
-            snap.left_elbow,
-            snap.left_shoulder,
-            snap.left_hip
-        )
-
-        a["right_shoulder"] = self._angle3(
-            snap.right_elbow,
-            snap.right_shoulder,
-            snap.right_hip
-        )
-
-        # Hips
-
-        a["left_hip"] = self._angle3(
-            snap.left_shoulder,
-            snap.left_hip,
-            snap.left_knee
-        )
-
-        a["right_hip"] = self._angle3(
-            snap.right_shoulder,
-            snap.right_hip,
-            snap.right_knee
-        )
-
-        # 3D Angles
-
-        a3["left_elbow_3d"] = self._angle3_3d(
-            snap.left_shoulder,
-            snap.left_elbow,
-            snap.left_wrist
-        )
-
-        a3["right_elbow_3d"] = self._angle3_3d(
-            snap.right_shoulder,
-            snap.right_elbow,
-            snap.right_wrist
-        )
-
-        # ------------------------------------------------------------ #
-        # Neck Tilt
-        # ------------------------------------------------------------ #
-
-        if (
-            snap.nose and
-            snap.left_shoulder and
-            snap.right_shoulder
-        ):
-
-            a["neck_tilt"] = self._neck_tilt(
-                snap.nose,
-                snap.left_shoulder,
-                snap.right_shoulder
-            )
-
-        # ------------------------------------------------------------ #
-        # Distances
-        # ------------------------------------------------------------ #
-
-        d = snap.distances
-
-        if (
-            snap.left_shoulder and
-            snap.right_shoulder
-        ):
-
-            d["shoulder_width"] = self._dist(
-                snap.left_shoulder,
-                snap.right_shoulder
-            )
-
-        if (
-            snap.left_hip and
-            snap.right_hip
-        ):
-
-            d["hip_width"] = self._dist(
-                snap.left_hip,
-                snap.right_hip
-            )
-
-        # ------------------------------------------------------------ #
-        # Body Scale
-        # ------------------------------------------------------------ #
-
-        if (
-            snap.mid_shoulder and
-            snap.mid_hip
-        ):
-
-            dx = (
-                snap.mid_shoulder[0] -
-                snap.mid_hip[0]
-            )
-
-            dy = (
-                snap.mid_shoulder[1] -
-                snap.mid_hip[1]
-            )
-
-            snap.body_scale = float(
-                np.hypot(dx, dy)
-            )
-
-        # ------------------------------------------------------------ #
-        # Symmetry
-        # ------------------------------------------------------------ #
-
-        s = snap.symmetry
-
-        lk = a.get("left_knee", self.MISSING)
-        rk = a.get("right_knee", self.MISSING)
-
-        if lk > 0 and rk > 0:
-
-            s["knee_symmetry"] = abs(lk - rk)
-
-        le = a.get("left_elbow", self.MISSING)
-        re = a.get("right_elbow", self.MISSING)
-
-        if le > 0 and re > 0:
-
-            s["elbow_symmetry"] = abs(le - re)
-
-        # ------------------------------------------------------------ #
-        # Stability
-        # ------------------------------------------------------------ #
-
-        coords = []
-
-        for lm in visible:
-
-            coords.append(lm.x)
-            coords.append(lm.y)
-
-        if coords and snap.body_scale > 1e-6:
-
-            raw_std = float(np.std(coords))
-
-            snap.stability_score = raw_std / snap.body_scale
-
-        # ------------------------------------------------------------ #
-        # Balance Score
-        # ------------------------------------------------------------ #
-
-        if (
-            snap.center_of_mass and
-            snap.mid_hip
-        ):
-
-            dx = abs(
-                snap.center_of_mass[0] -
-                snap.mid_hip[0]
-            )
-
-            snap.balance_score = max(
-                0.0,
-                1.0 - (dx / max(snap.body_scale, 1))
-            )
-
-        # ------------------------------------------------------------ #
-        # Velocities + Accelerations
-        # ------------------------------------------------------------ #
+        # ====================================================
+        # VELOCITY
+        # ====================================================
 
         for key, val in a.items():
 
-            if val < 0:
-                continue
+            prev = self.prev_angles.get(key)
 
-            prev_angle = self._prev_angles.get(key)
-
-            if prev_angle is not None:
-
-                velocity = val - prev_angle
-
-            else:
+            if prev is None:
 
                 velocity = 0.0
 
-            snap.velocities[key] = velocity
-
-            prev_velocity = self._prev_velocities.get(key)
-
-            if prev_velocity is not None:
-
-                acceleration = (
-                    velocity - prev_velocity
-                )
-
             else:
 
-                acceleration = 0.0
+                velocity = val - prev
 
-            snap.accelerations[key] = acceleration
+            snap.velocities[key] = velocity
 
-            self._prev_angles[key] = val
+            self.prev_angles[key] = val
 
-            self._prev_velocities[key] = velocity
+        # ====================================================
+        # FATIGUE
+        # ====================================================
 
-        # ------------------------------------------------------------ #
-        # Posture Analysis
-        # ------------------------------------------------------------ #
+        if snap.velocities:
 
-        p = snap.posture
+            fatigue_score = np.mean(
 
-        if (
-            "neck_tilt" in a and
-            a["neck_tilt"] > 20
-        ):
+                np.abs(
+                    list(snap.velocities.values())
+                )
 
-            p["forward_head"] = 1.0
-
-        else:
-
-            p["forward_head"] = 0.0
-
-        if (
-            s.get("shoulder_symmetry", 0) > 15
-        ):
-
-            p["uneven_shoulders"] = 1.0
+            )
 
         else:
 
-            p["uneven_shoulders"] = 0.0
+            fatigue_score = 0.0
 
-        # ------------------------------------------------------------ #
-        # Fatigue Estimation
-        # ------------------------------------------------------------ #
-
-        f = snap.fatigue
-
-        movement_energy = np.mean(
-
-            list(snap.velocities.values())
-
-        ) if snap.velocities else 0
-
-        instability = snap.stability_score
-
-        fatigue_score = (
-
-            abs(movement_energy) * 0.4 +
-            instability * 0.6
-
-        )
-
-        f["fatigue_score"] = float(
+        snap.fatigue["score"] = float(
             fatigue_score
         )
 
-        # ------------------------------------------------------------ #
-        # Temporal Smoothing
-        # ------------------------------------------------------------ #
-
-        self._history.append(snap)
-
-        # ------------------------------------------------------------ #
-        # Visibility
-        # ------------------------------------------------------------ #
+        # ====================================================
+        # VISIBILITY
+        # ====================================================
 
         required = [
 
@@ -594,68 +312,31 @@ class LandmarkExtractor:
 
             snap.left_hip,
             snap.right_hip,
-
-            snap.left_knee,
-            snap.right_knee,
-
         ]
 
         snap.fully_visible = all(
-            j is not None
-            for j in required
+            x is not None
+            for x in required
         )
+
+        self.history.append(snap)
 
         return snap
 
-    # ================================================================= #
+    # ========================================================
     # HELPERS
-    # ================================================================= #
+    # ========================================================
 
     @staticmethod
-    def _midpoint(
-        a: Landmark,
-        b: Landmark
-    ):
-
-        return (
-
-            int((a.px + b.px) / 2),
-            int((a.py + b.py) / 2),
-
-        )
-
-    # ----------------------------------------------------------------- #
-
-    @staticmethod
-    def _dist(
-        a: Landmark,
-        b: Landmark
-    ):
-
-        return float(
-
-            np.hypot(
-                a.px - b.px,
-                a.py - b.py
-            )
-
-        )
-
-    # ----------------------------------------------------------------- #
-
-    @staticmethod
-    def _angle3(
-        a,
-        b,
-        c
-    ):
+    def _angle(a, b, c):
 
         if (
             a is None or
             b is None or
             c is None
         ):
-            return -1.0
+
+            return 0.0
 
         return PoseEngine.landmark_angle(
             a,
@@ -663,70 +344,14 @@ class LandmarkExtractor:
             c
         )
 
-    # ----------------------------------------------------------------- #
-
-    @staticmethod
-    def _angle3_3d(
-        a,
-        b,
-        c
-    ):
-
-        if (
-            a is None or
-            b is None or
-            c is None
-        ):
-            return -1.0
-
-        return PoseEngine.landmark_angle_3d(
-            a,
-            b,
-            c
-        )
-
-    # ----------------------------------------------------------------- #
-
-    @staticmethod
-    def _neck_tilt(
-        nose,
-        l_shoulder,
-        r_shoulder,
-    ):
-
-        mid_x = (
-            l_shoulder.px +
-            r_shoulder.px
-        ) / 2
-
-        mid_y = (
-            l_shoulder.py +
-            r_shoulder.py
-        ) / 2
-
-        dx = nose.px - mid_x
-
-        dy = mid_y - nose.py
-
-        angle = np.degrees(
-
-            np.arctan2(
-                abs(dx),
-                max(dy, 1e-9)
-            )
-
-        )
-
-        return float(angle)
-
-    # ================================================================= #
-    # ML FEATURE VECTOR
-    # ================================================================= #
+    # ========================================================
+    # FEATURE VECTOR
+    # ========================================================
 
     def extract_angle_vector(
         self,
         snap: BodySnapshot
-    ) -> np.ndarray:
+    ):
 
         keys = [
 
@@ -735,34 +360,13 @@ class LandmarkExtractor:
 
             "left_knee",
             "right_knee",
-
-            "left_shoulder",
-            "right_shoulder",
-
-            "left_hip",
-            "right_hip",
-
-            "neck_tilt",
         ]
-
-        def _safe(v):
-
-            return (
-                np.nan
-                if v < 0
-                else v
-            )
 
         return np.array(
 
             [
 
-                _safe(
-                    snap.angles.get(
-                        k,
-                        self.MISSING
-                    )
-                )
+                snap.angles.get(k, 0.0)
 
                 for k in keys
 
